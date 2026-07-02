@@ -210,12 +210,18 @@ class PPTGenerator:
         # Title slide
         self._add_title_slide(source_file)
         
+        # Table of contents
+        self._add_toc_slide(hierarchy)
+        
         # Executive summary
         self._add_summary_slide(hierarchy)
         
         # Domain slides
         for domain in sorted(hierarchy.keys()):
             self._add_domain_section(domain, hierarchy[domain])
+        
+        # Appendix - Full application list
+        self._add_appendix(hierarchy)
         
         # Save
         self.prs.save(self.output_path)
@@ -268,6 +274,60 @@ class PPTGenerator:
         line.fill.solid()
         line.fill.fore_color.rgb = Colors.DARK_BLUE
         line.line.fill.background()
+    
+    def _add_toc_slide(self, hierarchy):
+        """Add table of contents slide"""
+        slide = self._add_blank_slide()
+        self._add_slide_title(slide, "Agenda")
+        
+        # Calculate domain stats for TOC
+        toc_items = []
+        for domain in sorted(hierarchy.keys()):
+            sub_domains = hierarchy[domain]
+            app_count = set()
+            for sub in sub_domains.values():
+                for sub_sub in sub.values():
+                    for activity in sub_sub.values():
+                        for app in activity:
+                            if app['app_code']:
+                                app_count.add(app['app_code'])
+            toc_items.append((domain, len(sub_domains), len(app_count)))
+        
+        # Create TOC content
+        content_box = slide.shapes.add_textbox(
+            Config.MARGIN_LEFT, Inches(1.5), Inches(12), Inches(5)
+        )
+        tf = content_box.text_frame
+        tf.word_wrap = True
+        
+        # Section numbers
+        sections = [
+            ("Executive Summary", "Overview of application portfolio"),
+        ]
+        
+        for i, (domain, sub_count, app_count) in enumerate(toc_items, start=2):
+            sections.append((domain, f"{sub_count} sub-domains, {app_count} applications"))
+        
+        sections.append(("Appendix", "Complete application listing"))
+        
+        for idx, (title, desc) in enumerate(sections):
+            if idx == 0:
+                p = tf.paragraphs[0]
+            else:
+                p = tf.add_paragraph()
+            
+            p.text = f"{idx + 1}.  {title}"
+            p.font.size = Pt(16)
+            p.font.bold = True
+            p.font.color.rgb = Colors.DARK_BLUE
+            p.space_before = Pt(8)
+            
+            # Description
+            p2 = tf.add_paragraph()
+            p2.text = f"      {desc}"
+            p2.font.size = Pt(12)
+            p2.font.color.rgb = Colors.DARK_GRAY
+            p2.space_after = Pt(4)
         
     def _add_summary_slide(self, hierarchy):
         """Add executive summary slide"""
@@ -362,8 +422,8 @@ class PPTGenerator:
         
     def _add_domain_section(self, domain, sub_domains):
         """Add slides for a data domain"""
-        # Domain divider slide
-        self._add_divider_slide(domain)
+        # Domain divider slide with stats
+        self._add_divider_slide(domain, sub_domains)
         
         # For each sub-domain
         for sub_domain in sorted(sub_domains.keys()):
@@ -385,14 +445,14 @@ class PPTGenerator:
             # Create slides with tables
             self._add_sub_domain_slides(domain, sub_domain, all_apps)
     
-    def _add_divider_slide(self, domain):
-        """Add a section divider slide"""
+    def _add_divider_slide(self, domain, sub_domains=None):
+        """Add a section divider slide with domain statistics"""
         slide = self._add_blank_slide()
         
         # Background shape
         shape = slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE,
-            Inches(0), Inches(2.8), Config.SLIDE_WIDTH, Inches(2)
+            Inches(0), Inches(2.5), Config.SLIDE_WIDTH, Inches(2.5)
         )
         shape.fill.solid()
         shape.fill.fore_color.rgb = Colors.DARK_BLUE
@@ -400,7 +460,7 @@ class PPTGenerator:
         
         # Domain title
         title_box = slide.shapes.add_textbox(
-            Inches(0.5), Inches(3.2), Inches(12.3), Inches(1)
+            Inches(0.5), Inches(2.8), Inches(12.3), Inches(1)
         )
         tf = title_box.text_frame
         p = tf.paragraphs[0]
@@ -409,6 +469,52 @@ class PPTGenerator:
         p.font.bold = True
         p.font.color.rgb = Colors.WHITE
         p.alignment = PP_ALIGN.CENTER
+        
+        # Add domain statistics if available
+        if sub_domains:
+            app_count = set()
+            sub_sub_count = 0
+            for sub in sub_domains.values():
+                sub_sub_count += len(sub)
+                for sub_sub in sub.values():
+                    for activity in sub_sub.values():
+                        for app in activity:
+                            if app['app_code']:
+                                app_count.add(app['app_code'])
+            
+            stats_box = slide.shapes.add_textbox(
+                Inches(0.5), Inches(4.0), Inches(12.3), Inches(0.8)
+            )
+            tf = stats_box.text_frame
+            p = tf.paragraphs[0]
+            p.text = f"{len(sub_domains)} Sub-Domains  •  {sub_sub_count} Categories  •  {len(app_count)} Applications"
+            p.font.size = Pt(18)
+            p.font.color.rgb = Colors.LIGHT_BLUE
+            p.alignment = PP_ALIGN.CENTER
+            
+            # List sub-domains below
+            sub_list_box = slide.shapes.add_textbox(
+                Inches(1), Inches(5.3), Inches(11.3), Inches(1.5)
+            )
+            tf = sub_list_box.text_frame
+            tf.word_wrap = True
+            
+            for i, sub_name in enumerate(sorted(sub_domains.keys())):
+                if i == 0:
+                    p = tf.paragraphs[0]
+                else:
+                    p = tf.add_paragraph()
+                
+                sub_apps = set()
+                for sub_sub in sub_domains[sub_name].values():
+                    for activity in sub_sub.values():
+                        for app in activity:
+                            if app['app_code']:
+                                sub_apps.add(app['app_code'])
+                
+                p.text = f"• {sub_name} ({len(sub_apps)} apps)"
+                p.font.size = Pt(12)
+                p.font.color.rgb = Colors.DARK_GRAY
         
     def _add_sub_domain_slides(self, domain, sub_domain, apps):
         """Add content slides for a sub-domain"""
@@ -578,6 +684,102 @@ class PPTGenerator:
         if len(text) > max_len:
             return text[:max_len-3] + '...'
         return text
+    
+    def _add_appendix(self, hierarchy):
+        """Add appendix with complete application list"""
+        # Collect all unique applications
+        all_apps = []
+        seen_codes = set()
+        
+        for domain in sorted(hierarchy.keys()):
+            for sub in hierarchy[domain].values():
+                for sub_sub in sub.values():
+                    for activity in sub_sub.values():
+                        for app in activity:
+                            code = app['app_code']
+                            if code and code not in seen_codes:
+                                seen_codes.add(code)
+                                all_apps.append({
+                                    'domain': domain,
+                                    'app_code': code,
+                                    'app_name': app['app_name'],
+                                    'country': app['country'],
+                                    'lobt': app['lobt']
+                                })
+        
+        # Sort by domain then app code
+        all_apps.sort(key=lambda x: (x['domain'], x['app_code']))
+        
+        # Add appendix divider
+        slide = self._add_blank_slide()
+        shape = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            Inches(0), Inches(2.8), Config.SLIDE_WIDTH, Inches(2)
+        )
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = Colors.MEDIUM_BLUE
+        shape.line.fill.background()
+        
+        title_box = slide.shapes.add_textbox(
+            Inches(0.5), Inches(3.2), Inches(12.3), Inches(1)
+        )
+        tf = title_box.text_frame
+        p = tf.paragraphs[0]
+        p.text = "Appendix: Complete Application List"
+        p.font.size = Pt(36)
+        p.font.bold = True
+        p.font.color.rgb = Colors.WHITE
+        p.alignment = PP_ALIGN.CENTER
+        
+        # Paginate applications
+        page_size = Config.MAX_ROWS_PER_SLIDE
+        pages = [all_apps[i:i + page_size] for i in range(0, len(all_apps), page_size)]
+        
+        for page_num, page_apps in enumerate(pages, start=1):
+            slide = self._add_blank_slide()
+            
+            title = "Application Inventory"
+            subtitle = f"All Applications ({len(all_apps)} total)"
+            if len(pages) > 1:
+                subtitle += f" - Page {page_num}/{len(pages)}"
+            
+            self._add_slide_title(slide, title, subtitle)
+            
+            # Add table
+            rows = len(page_apps) + 1
+            cols = 5
+            
+            table = slide.shapes.add_table(
+                rows, cols,
+                Config.MARGIN_LEFT, Config.MARGIN_TOP + Inches(0.5),
+                Inches(12.3), Config.TABLE_ROW_HEIGHT * rows
+            ).table
+            
+            headers = ['Data Domain', 'App Code', 'Application Name', 'Country', 'LOBT']
+            for i, header in enumerate(headers):
+                cell = table.cell(0, i)
+                cell.text = header
+                self._format_header_cell(cell)
+            
+            for row_idx, app in enumerate(page_apps, start=1):
+                data = [
+                    self._truncate(app.get('domain', ''), 20),
+                    self._truncate(app.get('app_code', ''), 12),
+                    self._truncate(app.get('app_name', ''), 40),
+                    self._truncate(app.get('country', ''), 10),
+                    self._truncate(app.get('lobt', ''), 20)
+                ]
+                
+                for col_idx, value in enumerate(data):
+                    cell = table.cell(row_idx, col_idx)
+                    cell.text = value
+                    self._format_body_cell(cell, row_idx % 2 == 0)
+            
+            table.columns[0].width = Inches(2.3)
+            table.columns[1].width = Inches(1.2)
+            table.columns[2].width = Inches(4.5)
+            table.columns[3].width = Inches(1.3)
+            table.columns[4].width = Inches(3.0)
 
 
 # ==============================================================================
