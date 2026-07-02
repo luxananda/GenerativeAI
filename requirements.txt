@@ -1,0 +1,8 @@
+# Excel to PowerPoint Generator - Dependencies
+# These are conservative, widely-used libraries approved in enterprise/bank environments
+
+# Excel file reading - Pure Python, no C dependencies
+openpyxl>=3.0.0
+
+# PowerPoint generation - Pure Python, no C dependencies  
+python-pptx>=0.6.21
