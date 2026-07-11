@@ -1,0 +1,34 @@
+# MCP Scenarios - Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core async support (standard library in Python 3.7+)
+# asyncio is built-in
+
+# For production MCP implementation
+# mcp>=0.1.0  # Uncomment when MCP package is available
+
+# For HTTP-based MCP servers
+aiohttp>=3.8.0
+
+# For caching (optional, for production)
+# redis>=4.0.0
+# aiocache>=0.12.0
+
+# For vector search (for semantic search scenarios)
+# numpy>=1.21.0
+# faiss-cpu>=1.7.0  # For local vector search
+# sentence-transformers>=2.0.0  # For embeddings
+
+# For database connections (uncomment as needed)
+# oracledb>=1.0.0  # Oracle
+# pyrfc>=2.0.0  # SAP RFC
+# simple-salesforce>=1.12.0  # Salesforce
+
+# For observability
+# prometheus-client>=0.15.0
+# opentelemetry-api>=1.0.0
+# opentelemetry-sdk>=1.0.0
+
+# Development dependencies
+pytest>=7.0.0
+pytest-asyncio>=0.20.0
